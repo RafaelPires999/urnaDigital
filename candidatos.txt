@@ -1,0 +1,6 @@
+22;Clebinho;PL;Toninho Dourado;PREFEITO
+45;Carlinho;PSDB;Dr. Luís;PREFEITO
+45500;Marcio Barroquelli;PSDB;;VEREADOR
+45800;Nego Mole;PSDB;;VEREADOR
+55555;Gildasio Moreira;PSD;;VEREADOR
+22100;Balaio;PL;;VEREADOR

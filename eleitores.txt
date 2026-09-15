@@ -1,0 +1,4 @@
+4f803b1dabfaee80245959d4994f528c;123456789000;Rafael Aguiar Pires;false
+4b14aca6313e3df891c2dfb08602b6af;987654321000;Rosana de Moraes;false
+386aee3ae755e7381de2cce31ac9c64a;123456789999;Paulo Donizete;false
+2c38f14aa4e6bfaf2f1b339ba5b6c499;111122223333;Isabel Rulvania;false
