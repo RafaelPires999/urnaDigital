@@ -4,6 +4,7 @@
  */
 package fai.aulas.urnafai;
 
+import java.sql.SQLException;
 import javax.swing.JOptionPane;
 
 /**
@@ -142,30 +143,37 @@ public class TelaCadastroEleitor extends javax.swing.JDialog {
         String titulo = txtTitulo.getText();
         String nome = txtNome.getText().trim();
         
-        if(eleitorDAO.buscaPorCpf(cpf) != null){
+        try{
+            if(eleitorDAO.existeCPF(cpf)){
+                JOptionPane.showMessageDialog(this,
+                        "Já existe um eleitor cadastrado com esse CPF",
+                        "Cadastro de Eleitor",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if(eleitorDAO.existeTitulo(titulo)){
+                JOptionPane.showMessageDialog(this,
+                        "Já existe um Título cadastrado",
+                        "Cadastro de Eleitor",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            eleitorDAO.inserir(new Eleitor(cpf, titulo, nome, false));
+
             JOptionPane.showMessageDialog(this,
-                    "Já existe um eleitor cadastrado com esse CPF",
-                    "Cadastro de Eleitor",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        if(eleitorDAO.existeTitulo(titulo)){
+                "Cadastro concluído com sucesso",
+                "Cadastro de Eleitor",
+            JOptionPane.INFORMATION_MESSAGE);
+
+            limparCampos();
+        }catch(SQLException e){
             JOptionPane.showMessageDialog(this,
-                    "Já existe um Título cadastrado",
-                    "Cadastro de Eleitor",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
+                    "Erro ao cadastrar eleitor: " + e.getMessage(),
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
         }
-        
-        eleitorDAO.cadastrarEleitor(cpf, titulo, nome);
-        
-        JOptionPane.showMessageDialog(this,
-            "Cadastro concluído com sucesso",
-            "Cadastro de Eleitor",
-        JOptionPane.INFORMATION_MESSAGE);
-        
-        limparCampos();
     }//GEN-LAST:event_btnCadastrarActionPerformed
 
     private void limparCampos(){

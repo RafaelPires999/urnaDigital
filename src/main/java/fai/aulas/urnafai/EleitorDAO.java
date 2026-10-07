@@ -4,124 +4,110 @@
  */
 package fai.aulas.urnafai;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 /**
  *
  * @author rafa-pires
  */
 public class EleitorDAO {
-    private static final String ARQUIVO = "eleitores.txt";
-    private List<Eleitor> eleitores = new ArrayList<>();
-    
-    public EleitorDAO(){
-        carregarEleitor();
-    }
-    
+
     private static String limparNumeros(String texto){
-        return texto.replaceAll("[^0-9]", "");
+        return texto == null ? "" : texto.replaceAll("[^0-9]", "");
     }
-    
-    public void cadastrarEleitor(String cpf, String titulo, String nome){
-        String cpfLimpo = limparNumeros(cpf);
-        String tituloLimpo = limparNumeros(titulo);
-        Eleitor eleitor = new Eleitor(md5(cpfLimpo), tituloLimpo, nome, false);
-        eleitores.add(eleitor);
-        salvarEleitor(eleitor);
+
+    /** Grava o eleitor; o CPF vai para o banco em hash MD5. */
+    public void inserir(Eleitor eleitor) throws SQLException{
+        String sql = "INSERT INTO eleitores (cpf, titulo, nome, ja_votou) VALUES (?, ?, ?, ?)";
+
+        try(Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)){
+            ps.setString(1, md5(limparNumeros(eleitor.getCpf())));
+            ps.setString(2, limparNumeros(eleitor.getTitulo()));
+            ps.setString(3, eleitor.getNome());
+            ps.setBoolean(4, false);
+            ps.executeUpdate();
+        }
     }
-    
-    public Eleitor buscaPorCpf(String cpf){
-        String cpfHash = md5(limparNumeros(cpf));
-        for (Eleitor e : eleitores){
-            if(e.getCpf().equals(cpfHash)){
-                return e;
+
+    public Eleitor buscarPorCPF(String cpf) throws SQLException {
+        String sql = "SELECT cpf, titulo, nome, ja_votou FROM eleitores WHERE cpf = ?";
+
+        try (Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, md5(limparNumeros(cpf)));
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Eleitor eleitor = new Eleitor();
+
+                    eleitor.setCpf(rs.getString("cpf"));
+                    eleitor.setTitulo(rs.getString("titulo"));
+                    eleitor.setNome(rs.getString("nome"));
+                    eleitor.setJavotou(rs.getBoolean("ja_votou"));
+
+                    return eleitor;
+                }
             }
         }
         return null;
     }
-    
-    public boolean existeTitulo(String titulo){
-        String tituloLimpo = limparNumeros(titulo);
-        for(Eleitor e : eleitores){
-            if(e.getTitulo().equals(tituloLimpo)){
-                return true;
+
+    public boolean existeCPF(String cpf) throws SQLException{
+        String sql = "SELECT cpf FROM eleitores WHERE cpf = ?";
+
+        try (Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)){
+            ps.setString(1, md5(limparNumeros(cpf)));
+
+            try(ResultSet rs = ps.executeQuery()){
+                return rs.next();
             }
         }
-        return false;
-    }
-    
-    public void resetarVotos(){
-        for(Eleitor e : eleitores){
-            e.setJaVotou(false);
-        }
-        salvarTodos();
-    }
-    
-    private void salvarEleitor(Eleitor eleitor){
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(ARQUIVO, true))){
-            bw.write(eleitor.getCpf() + ";" + eleitor.getTitulo() + ";" + eleitor.getNome() + ";" + eleitor.isJaVotou());
-            bw.newLine();
-        } catch(IOException e){
-            e.printStackTrace();
-        }
-    }
-    
-    public void registrarVoto(Eleitor eleitor){
-        eleitor.setJaVotou(true);
-        salvarTodos();
     }
 
-    private void salvarTodos(){
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(ARQUIVO, false))){
-            for(Eleitor e : eleitores){
-                bw.write(e.getCpf() + ";" + e.getTitulo() + ";" + e.getNome() + ";" + e.isJaVotou());
-                bw.newLine();
+    public boolean existeTitulo(String titulo) throws SQLException{
+        String sql = "SELECT titulo FROM eleitores WHERE titulo = ?";
+
+        try(Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)){
+            ps.setString(1, limparNumeros(titulo));
+
+            try(ResultSet rs = ps.executeQuery()){
+                return rs.next();
             }
-        } catch(IOException e){
-            e.printStackTrace();
         }
     }
-    
-    private void carregarEleitor(){
-        File arquivo = new File(ARQUIVO);
-        if(!arquivo.exists()){
-            return;
-        }
-        
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))){
-            String linha;
-            while((linha = br.readLine()) != null){
-                String[] partes = linha.split(";");
-                if(partes.length == 4){
-                    eleitores.add(new Eleitor(partes[0], partes[1], partes[2], Boolean.parseBoolean(partes[3]))); 
-                }
-            }
-        } catch (IOException e){
-            e.printStackTrace();
+
+    /**
+     * Marca o eleitor como votante usando a conexão da transação do voto.
+     * O "AND ja_votou = FALSE" faz a checagem e a gravação num passo só:
+     * se o eleitor já tiver votado, nenhuma linha é alterada e retorna false.
+     */
+    public boolean marcarComoVotou(Connection con, Eleitor eleitor) throws SQLException {
+        String sql = "UPDATE eleitores SET ja_votou = TRUE WHERE cpf = ? AND ja_votou = FALSE";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, eleitor.getCpf());
+            return ps.executeUpdate() == 1;
         }
     }
-    
+
+    /**
+     * Libera todos os eleitores para uma nova eleição. Recebe a conexão da
+     * transação de limpeza, para rodar junto com a exclusão dos votos.
+     */
+    public void resetarVotos(Connection con) throws SQLException {
+        String sql = "UPDATE eleitores SET ja_votou = FALSE";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.executeUpdate();
+        }
+    }
+
     private static String md5(String texto){
-        try{
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] hash = md.digest(texto.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash){
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch(NoSuchAlgorithmException e){
-            throw new RuntimeException(e);
-        }
+        return Hash.md5(texto);
     }
 }

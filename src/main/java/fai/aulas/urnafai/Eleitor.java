@@ -21,23 +21,38 @@ public class Eleitor {
         this.javotou = javotou;
     }
     
-    public String getCpf(){
+    public Eleitor(){
+    }
+
+    public String getCpf() {
         return cpf;
     }
-    
-    public String getTitulo(){
+
+    public void setCpf(String cpf) {
+        this.cpf = cpf;
+    }
+
+    public String getTitulo() {
         return titulo;
     }
-    
-    public String getNome(){
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
+    }
+
+    public String getNome() {
         return nome;
     }
-    
-    public Boolean isJaVotou(){
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public Boolean getJavotou() {
         return javotou;
     }
-    
-    public void setJaVotou(Boolean javotou){
+
+    public void setJavotou(Boolean javotou) {
         this.javotou = javotou;
     }
 }

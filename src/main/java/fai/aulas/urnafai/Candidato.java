@@ -14,48 +14,86 @@ public class Candidato {
     private String partido;
     private String vice;
     private String cargo;
+    private String foto;
     
     public Candidato(String numero, String nome, String partido){
-        this(numero, nome, partido, null, null);
+        this(numero, nome, partido, null, null, null);
     }
     
     public Candidato(String numero, String nome, String partido, String vice){
-        this(numero, nome, partido, vice, null);
+        this(numero, nome, partido, vice, null, null);
     }
     
-    public Candidato(String numero, String nome, String partido, String vice, String cargo){
+     public Candidato(String numero, String nome, String partido, String vice, String cargo){
+        this(numero, nome, partido, vice, cargo, null);
+    }
+    
+    public Candidato(String numero, String nome, String partido, String vice, String cargo, String foto){
         this.numero = numero;
         this.nome = nome;
         this.partido = partido;
         this.vice = vice;
         this.cargo = cargo;
+        this.foto = foto;
     }
     
-    public String getNome(){
+    public Candidato(){
+    }
+
+     public String getNumero() {
+        return numero;
+    }
+ 
+    public void setNumero(String numero) {
+        this.numero = numero;
+    }
+ 
+    public String getNome() {
         return nome;
     }
-    
-    public String getVice(){
+ 
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+ 
+    public String getPartido() {
+        return partido;
+    }
+ 
+    public void setPartido(String partido) {
+        this.partido = partido;
+    }
+ 
+    public String getVice() {
         return vice;
     }
-    
+ 
+    public void setVice(String vice) {
+        this.vice = vice;
+    }
+ 
     public Boolean temVice(){
         return vice != null;
     }
-    
-    public String getNumero(){
-        return numero;
-    }
-    
-    public String getPartido(){
-        return partido;
-    }
-    
-    public String getCargo(){
+ 
+    public String getCargo() {
         return cargo;
     }
-
-    void add(Candidato candidato) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+ 
+    public void setCargo(String cargo) {
+        this.cargo = cargo;
     }
+ 
+    public String getFoto() {
+        return foto;
+    }
+ 
+    public void setFoto(String foto) {
+        this.foto = foto;
+    }
+ 
+    public boolean temFoto(){
+        return foto != null && !foto.isEmpty();
+    }
+
 }

@@ -4,13 +4,9 @@
  */
 package fai.aulas.urnafai;
 
+import java.sql.SQLException;
 import java.awt.BorderLayout;
 import java.util.Map;
-import java.util.HashMap;
-import java.io.File;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -39,8 +35,12 @@ public class TelaPrincipal extends javax.swing.JFrame {
     private static final String[] Cargos = {"PREFEITO", "VEREADOR"};
     private static final int[] num_Digitos_Cargo = {2, 5};
     
-    private static final String ARQUIVO_VOTOS = "votos.txt";
-    private static final int CHAVE_CIFRA = 3;
+    private static final String PASTA_FOTOS = "src/main/java/fai/aulas/urnafai/fotos";
+
+    private VotoDAO votoDAO = new VotoDAO();
+    private SessaoDAO sessaoDAO = new SessaoDAO();
+    private Integer idSessaoAtual = null;
+    private Voto votoAtual = null;
     
     private int cargoAtual = 0;
     private StringBuilder numeroDigitado = new StringBuilder();
@@ -59,7 +59,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
     public TelaPrincipal(Mesario mesario) {
         initComponents();
         daoPorCargo = new CandidatoDAO[] {daoPrefeito, daoVereador};
-        setSize(1024, 700);           // tamanho FIXO — não depende mais do pack()
+        setSize(1024, 700);
         setLocationRelativeTo(null);
         setLocationRelativeTo(null);
         
@@ -80,11 +80,46 @@ public class TelaPrincipal extends javax.swing.JFrame {
         
         sessaoAtiva(false);
         
-        java.awt.EventQueue.invokeLater(() -> {
-            Zeresima aviso = new Zeresima(this, true);
-            aviso.setLocationRelativeTo(this);
-            aviso.setVisible(true);
-        });
+        if (!retomarSessaoAberta()) {
+            java.awt.EventQueue.invokeLater(() -> {
+                Zeresima aviso = new Zeresima(this, true);
+                aviso.setLocationRelativeTo(this);
+                aviso.setVisible(true);
+            });
+        }
+    }
+    
+    private boolean retomarSessaoAberta() {
+        Sessao sessao;
+        try {
+            sessao = sessaoDAO.buscarSessaoAberta();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Erro ao verificar sessão aberta: " + e.getMessage(),
+                    "Erro", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+
+        if (sessao == null) {
+            return false;
+        }
+
+        idSessaoAtual = sessao.getIdSessao();
+        txtMesarioNome.setText(sessao.getMesario().getNome());
+        txtMatricula.setText(sessao.getMesario().getMatricula());
+        txtHoraInicio.setText(sessao.getInicio().format(DateTimeFormatter.ofPattern("HH:mm")));
+        sessaoAtiva(true);
+
+        String mensagem = "A sessão iniciada em "
+                + sessao.getInicio().format(DateTimeFormatter.ofPattern("dd/MM 'às' HH:mm"))
+                + " por " + sessao.getMesario().getNome()
+                + " não foi encerrada e foi retomada.\n\n"
+                + "Se um eleitor estava votando quando o sistema fechou, o voto dele\n"
+                + "NÃO foi gravado. Libere-o novamente para que vote do início.";
+        java.awt.EventQueue.invokeLater(() ->
+                JOptionPane.showMessageDialog(this, mensagem,
+                        "Sessão retomada", JOptionPane.INFORMATION_MESSAGE));
+        return true;
     }
     
     private void iniciarCargo(int indice){
@@ -699,10 +734,10 @@ public class TelaPrincipal extends javax.swing.JFrame {
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblApuracaoTitulo, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(btnLimparApuracao, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(btnApurar, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(btnApurar, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(lblApuracaoTitulo, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addComponent(scrollApuracao, javax.swing.GroupLayout.PREFERRED_SIZE, 483, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 24, Short.MAX_VALUE))
@@ -763,22 +798,35 @@ public class TelaPrincipal extends javax.swing.JFrame {
     private EleitorDAO eleitorDAO = new EleitorDAO();
     private void btnLiberarEleitorActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLiberarEleitorActionPerformed
         // TODO add your handling code here:
+        if (idSessaoAtual == null) {
+            exibirStatusEleitor(false, "Não há sessão aberta. Inicie a sessão antes de liberar eleitores");
+            return;
+        }
+
         String cpf = txtCpf.getText().trim();
         String titulo = txtTitulo.getText().trim().replaceAll("[^0-9]", "");
 
-        Eleitor eleitor = eleitorDAO.buscaPorCpf(cpf);
-        
-        if(eleitor == null){
-            exibirStatusEleitor(false, "CPF não cadastrado. Verifique o documento apresentado pelo eleitor");
-        } else if(!eleitor.getTitulo().equals(titulo)){
-            exibirStatusEleitor(false, "Título de eleitor não confere com o CPF informado");
-        } else if(eleitor.isJaVotou()){
-            exibirStatusEleitor(false, "Este eleitor ja registrou o voto nesta sessão");
-        } else {
-            exibirStatusEleitor(true, "Eleitor identificado com Sucesso. Urna liberada para votar");
-            eleitorAtual = eleitor;
-            jTabbedPane1.setEnabledAt(1, true);
-            iniciarCargo(0);
+        try {
+            Eleitor eleitor = eleitorDAO.buscarPorCPF(cpf);
+
+            if(eleitor == null){
+                exibirStatusEleitor(false, "CPF não cadastrado. Verifique o documento apresentado pelo eleitor");
+            } else if(!eleitor.getTitulo().equals(titulo)){
+                exibirStatusEleitor(false, "Título de eleitor não confere com o CPF informado");
+            } else if(eleitor.getJavotou()){
+                exibirStatusEleitor(false, "Este eleitor ja registrou o voto nesta sessão");
+            } else {
+                exibirStatusEleitor(true, "Eleitor identificado com Sucesso. Urna liberada para votar");
+                eleitorAtual = eleitor;
+                votoAtual = new Voto(idSessaoAtual);
+                jTabbedPane1.setEnabledAt(1, true);
+                iniciarCargo(0);
+            }
+        }catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                "Erro ao consultar eleitor: " + e.getMessage(),
+                "Erro",
+                JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_btnLiberarEleitorActionPerformed
 
@@ -796,6 +844,15 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
     private void iniciarSessaoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_iniciarSessaoActionPerformed
         // TODO add your handling code here:
+        try {
+            idSessaoAtual = sessaoDAO.iniciarSessao(mesarioLogado.getMatricula());
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Erro ao iniciar a sessão: " + e.getMessage(),
+                    "Erro", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
         txtMesarioNome.setText(mesarioLogado.getNome());
         txtMatricula.setText(mesarioLogado.getMatricula());
         txtHoraInicio.setText(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
@@ -805,19 +862,41 @@ public class TelaPrincipal extends javax.swing.JFrame {
 
     private void encerrarSessaoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_encerrarSessaoActionPerformed
         // TODO add your handling code here:
-        eleitorDAO.resetarVotos();
-        
-        txtCpf.setText("");
-        txtTitulo.setText("");
-        pnlStatusEleitor.setVisible(false);
-        jTabbedPane1.setEnabledAt(1, false);
-        
-        JOptionPane.showMessageDialog(this,
-            "Sessão encerrada às " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) + ".",
-            "Sessão encerrada", JOptionPane.INFORMATION_MESSAGE);
-        
-        jTabbedPane1.setEnabledAt(2, false);
-        jTabbedPane1.setSelectedIndex(2);
+        try {
+            if (idSessaoAtual != null) {
+                sessaoDAO.encerrarSessao(idSessaoAtual);
+                idSessaoAtual = null;
+            }
+
+            // Sessão encerrada: ninguém mais pode ser liberado para votar
+            eleitorAtual = null;
+            votoAtual = null;
+            txtCpf.setEnabled(false);
+            txtTitulo.setEnabled(false);
+            btnLiberarEleitor.setEnabled(false);
+            encerrarSessao.setEnabled(false);
+
+            txtCpf.setText("");
+            txtTitulo.setText("");
+            pnlStatusEleitor.setVisible(false);
+            jTabbedPane1.setEnabledAt(1, false);
+
+            JOptionPane.showMessageDialog(this,
+                    "Sessão encerrada às "
+                    + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) + ".",
+                    "Sessão encerrada",
+                    JOptionPane.INFORMATION_MESSAGE);
+
+            jTabbedPane1.setEnabledAt(2, false);
+            jTabbedPane1.setSelectedIndex(2);
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Erro ao encerrar sessão: " + e.getMessage(),
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }//GEN-LAST:event_encerrarSessaoActionPerformed
 
     private void txtTituloActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtTituloActionPerformed
@@ -940,8 +1019,10 @@ public class TelaPrincipal extends javax.swing.JFrame {
             exibirNomeCandidato();
             conferindoNome = true;
         } else {
-            registrarVoto(Cargos[cargoAtual], votoBranco ? "BRANCO" : numeroDigitado.toString());
-            
+            // Guarda a escolha só em memória; o banco é gravado no final, de uma vez
+            votoAtual.adicionarItem(new ItemVoto(Cargos[cargoAtual],
+                    votoBranco ? "BRANCO" : numeroDigitado.toString()));
+
             if(cargoAtual < Cargos.length - 1){
                 iniciarCargo(cargoAtual + 1);
             } else {
@@ -959,7 +1040,8 @@ public class TelaPrincipal extends javax.swing.JFrame {
     private void btnLimparApuracaoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLimparApuracaoActionPerformed
         // TODO add your handling code here:
         int opcao = JOptionPane.showConfirmDialog(this,
-            "Isso vai apagar a apuração da tela e excluir o arquivo votos.txt.\n"
+            "Isso vai apagar a apuração da tela, excluir todos os votos do banco de dados\n"
+            + "e liberar todos os eleitores para votar novamente.\n"
             + "Essa ação não pode ser desfeita. Deseja continuar?",
             "Limpar Apuração", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 
@@ -967,25 +1049,36 @@ public class TelaPrincipal extends javax.swing.JFrame {
         return;
     }
 
+    try {
+        votoDAO.limparVotos();
+    } catch (SQLException e) {
+        JOptionPane.showMessageDialog(this,
+                "Erro ao apagar os votos: " + e.getMessage(),
+                "Erro", JOptionPane.ERROR_MESSAGE);
+        return;
+    }
+
     pnlApuracaoConteudo.removeAll();
     pnlApuracaoConteudo.revalidate();
     pnlApuracaoConteudo.repaint();
-
-    File arquivo = new File(ARQUIVO_VOTOS);
-    if (arquivo.exists()) {
-        arquivo.delete();
-    }
 
     btnLimparApuracao.setEnabled(false);
     }//GEN-LAST:event_btnLimparApuracaoActionPerformed
     
     private void exibirNomeCandidato(){
-        Candidato candidato = daoPorCargo[cargoAtual].buscaPorNumero(numeroDigitado.toString());
-    
+        Candidato candidato = null;
+        try {
+            candidato = daoPorCargo[cargoAtual].buscaPorNumero(numeroDigitado.toString());
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Erro ao consultar candidato: " + e.getMessage(),
+                    "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+
         if(candidato != null){
             lblVisorNome.setText(candidato.getNome());
             lblVisorPartido.setText("Partido: " + candidato.getPartido());
-            carregarFotoCandidato(numeroDigitado.toString());
+            carregarFotoCandidato(candidato);
             if(candidato.temVice()){
                 lblVisorVice.setText("Vice: " + candidato.getVice());
                 lblVisorVice.setVisible(true);
@@ -1000,8 +1093,10 @@ public class TelaPrincipal extends javax.swing.JFrame {
         }
     }
     
-    private void carregarFotoCandidato(String numero) {
-        String caminho = "src/main/java/fai/aulas/urnafai/fotos/" + numero + ".png";
+    private void carregarFotoCandidato(Candidato candidato) {
+        String caminho = candidato.temFoto()
+                ? candidato.getFoto()
+                : PASTA_FOTOS + "/" + candidato.getNumero() + ".png";
         java.io.File arquivo = new java.io.File(caminho);
 
         if (arquivo.exists()) {
@@ -1014,73 +1109,16 @@ public class TelaPrincipal extends javax.swing.JFrame {
         }
     }
     
-    private void registrarVoto(String cargo, String valor){
-        String valorCifrado = cifrarCesar(valor, CHAVE_CIFRA);
-
-        try (java.io.BufferedWriter bw = new java.io.BufferedWriter(new java.io.FileWriter(ARQUIVO_VOTOS, true))){
-            bw.write(cargo + ";" + valorCifrado);
-            bw.newLine();
-        } catch(java.io.IOException e){
-            e.printStackTrace();
-        }
-    }
-    
-    private String cifrarCesar(String texto, int chave){
-        StringBuilder sb = new StringBuilder();
-
-        for(char c : texto.toCharArray()){
-            if(Character.isDigit(c)){
-                int novoDigito = (Character.getNumericValue(c) + chave) % 10;
-                sb.append(novoDigito);
-            } else if(Character.isUpperCase(c)){
-                char novaLetra = (char) ('A' + (c - 'A' + chave) % 26);
-                sb.append(novaLetra);
-            } else {
-                sb.append(c);
-            }
-        }
-
-        return sb.toString();
-    }
-    
-    private String decifrarCesar(String texto, int chave){
-        StringBuilder sb = new StringBuilder();
-        for(char c : texto.toCharArray()){
-            if(Character.isDigit(c)){
-                int digito = Character.getNumericValue(c);
-                int original = ((digito - chave) % 10 + 10) % 10;
-                sb.append(original);
-            } else if(Character.isUpperCase(c)){
-                int letra = c - 'A';
-                int original = ((letra - chave) % 26 + 26) % 26;
-                sb.append((char) ('A' + original));
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-    
     private Map<String, Integer> contarVotos(String cargo){
-        Map<String, Integer> contagem = new HashMap<>();
-        File arquivo = new File(ARQUIVO_VOTOS);
-        if(!arquivo.exists()){
-            return contagem;
+        try {
+            // COUNT + GROUP BY feitos no banco (VotoDAO.apurar)
+            return votoDAO.apurar(cargo);
+        } catch(SQLException e){
+            JOptionPane.showMessageDialog(this,
+                    "Erro ao ler os votos: " + e.getMessage(),
+                    "Erro", JOptionPane.ERROR_MESSAGE);
+            return new java.util.HashMap<>();
         }
-        
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivo))){
-            String linha;
-            while ((linha = br.readLine()) != null){
-                String[] partes = linha.split(";", -1);
-                if(partes.length == 2 && partes[0].equals(cargo)){
-                    String valor = decifrarCesar(partes[1], CHAVE_CIFRA);
-                    contagem.merge(valor, 1, Integer::sum);
-                }
-            }
-        } catch(IOException e){
-            e.printStackTrace();
-        }
-        return contagem;
     }
     
     private void montarSecaoApuracao(String cargo, int indiceCargo, JPanel destino){
@@ -1097,10 +1135,16 @@ public class TelaPrincipal extends javax.swing.JFrame {
        }
        
        List<Candidato> candidatos = new ArrayList<>();
-       for (Candidato c : daoPorCargo[indiceCargo].listarTodos()) {
-           if (cargo.equals(c.getCargo())) {
-               candidatos.add(c);
+       try {
+           for (Candidato c : daoPorCargo[indiceCargo].listarTodos()) {
+               if (cargo.equals(c.getCargo())) {
+                   candidatos.add(c);
+               }
            }
+       } catch (SQLException e) {
+           JOptionPane.showMessageDialog(this,
+                   "Erro ao listar candidatos: " + e.getMessage(),
+                   "Erro", JOptionPane.ERROR_MESSAGE);
        }
             
        List<Object[]> linhas = new ArrayList<>();
@@ -1193,11 +1237,22 @@ public class TelaPrincipal extends javax.swing.JFrame {
     }
     
     private void finalizarVotacao(){
-        
-        if(eleitorAtual != null){
-            eleitorDAO.registrarVoto(eleitorAtual);
-            eleitorAtual = null;
+        if (eleitorAtual == null || votoAtual == null || !votoAtual.estaCompleto(Cargos.length)) {
+            cancelarVotacao("Votação incompleta. Nada foi gravado; libere o eleitor novamente.");
+            return;
         }
+
+        try {
+            // Transação: marca o eleitor e grava todos os cargos, ou não grava nada
+            votoDAO.registrarVotacao(votoAtual, eleitorAtual);
+        } catch (SQLException e) {
+            cancelarVotacao("Erro ao gravar o voto: " + e.getMessage()
+                    + "\nNada foi gravado. Libere o eleitor novamente para recomeçar.");
+            return;
+        }
+
+        eleitorAtual = null;
+        votoAtual = null;
 
         txtCpf.setText("");
         txtTitulo.setText("");
@@ -1211,6 +1266,19 @@ public class TelaPrincipal extends javax.swing.JFrame {
         jTabbedPane1.setSelectedIndex(0);
     }
     
+    /**
+     * Descarta o voto em andamento (nada foi para o banco) e volta para a
+     * tela de liberação, permitindo que o eleitor recomece.
+     */
+    private void cancelarVotacao(String mensagem) {
+        eleitorAtual = null;
+        votoAtual = null;
+        pnlStatusEleitor.setVisible(false);
+        jTabbedPane1.setEnabledAt(1, false);
+        jTabbedPane1.setSelectedIndex(0);
+        JOptionPane.showMessageDialog(this, mensagem, "Voto cancelado", JOptionPane.WARNING_MESSAGE);
+    }
+
     private void exibirStatusEleitor(boolean autorizado, String mensagem) {
         pnlStatusEleitor.setVisible(true);
         lblStatusEleitor.setText(mensagem);

@@ -4,6 +4,7 @@
  */
 package fai.aulas.urnafai;
 
+import java.sql.SQLException;
 import javax.swing.JOptionPane;
 
 /**
@@ -150,30 +151,37 @@ public class TelaCadastroMesario extends javax.swing.JDialog {
         String usuario = txtUsuario.getText().trim();
         String senha = new String(txtSenha.getPassword());
         
-        if(mesarioDAO.existeMatricula(matricula)){
-            JOptionPane.showMessageDialog(this,
-                    "Já existe um mesário cadastrado com essa matrícula",
-                    "Cadastro de Mesário",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        if(mesarioDAO.existeUsuario(usuario)){
-            JOptionPane.showMessageDialog(this,
-                    "Este usuário ja está cadastrado",
-                    "Cadastro de Mesário",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        mesarioDAO.cadastrarMesario(nome, matricula, usuario, senha);
-        
-        JOptionPane.showMessageDialog(this,
-            "Cadastro concluído com sucesso",
-            "Cadastro de Mesário",
-            JOptionPane.INFORMATION_MESSAGE);
+        try{
+            if(mesarioDAO.existeMatricula(matricula)){
+                JOptionPane.showMessageDialog(this,
+                        "Já existe um mesário cadastrado com essa matrícula",
+                        "Cadastro de Mesário",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
 
-        limparCampos();
+            if(mesarioDAO.existeUsuario(usuario)){
+                JOptionPane.showMessageDialog(this,
+                        "Este usuário ja está cadastrado",
+                        "Cadastro de Mesário",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            mesarioDAO.inserir(new Mesario(nome, matricula, usuario, senha));
+
+            JOptionPane.showMessageDialog(this,
+                "Cadastro concluído com sucesso",
+                "Cadastro de Mesário",
+                JOptionPane.INFORMATION_MESSAGE);
+
+            limparCampos();
+        } catch(SQLException e){
+            JOptionPane.showMessageDialog(this,
+                    "Erro ao cadastrar mesário: " + e.getMessage(),
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }//GEN-LAST:event_btnCadastrarActionPerformed
     
     private void limparCampos(){

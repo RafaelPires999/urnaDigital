@@ -1022,10 +1022,10 @@
             <DimensionLayout dim="1">
               <Group type="103" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="0" attributes="0">
-                      <Group type="103" groupAlignment="3" attributes="0">
-                          <Component id="lblApuracaoTitulo" alignment="3" min="-2" pref="33" max="-2" attributes="0"/>
+                      <Group type="103" groupAlignment="0" attributes="0">
                           <Component id="btnLimparApuracao" alignment="0" min="-2" pref="34" max="-2" attributes="0"/>
                           <Component id="btnApurar" alignment="0" min="-2" pref="33" max="-2" attributes="0"/>
+                          <Component id="lblApuracaoTitulo" min="-2" pref="33" max="-2" attributes="0"/>
                       </Group>
                       <EmptySpace type="separate" max="-2" attributes="0"/>
                       <Component id="scrollApuracao" min="-2" pref="483" max="-2" attributes="0"/>

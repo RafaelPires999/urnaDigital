@@ -4,6 +4,8 @@
  */
 package fai.aulas.urnafai;
 
+import java.sql.SQLException;
+
 import javax.swing.JOptionPane;
 
 /**
@@ -214,7 +216,7 @@ public class TelaCadastroCandidato extends javax.swing.JDialog {
         if("PREFEITO".equals(cargo) && numero.length() != 2){
             JOptionPane.showMessageDialog(this,
                     "Número de prefeito deve conter 2 dígitos",
-                    "Cadastro de Candidadto",
+                    "Cadastro de Candidato",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -227,19 +229,29 @@ public class TelaCadastroCandidato extends javax.swing.JDialog {
             return;
         }
         
-        if(candidatoDAO.numeroExiste(numero)){
-            JOptionPane.showMessageDialog(this,
-                    "Número de candidato já existente",
-                    "Cadastro de Candidato",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
         String nome = txtNome.getText().trim();
         String partido = txtPartido.getText().trim();
         String vice = "PREFEITO".equals(cargo) ? txtVice.getText().trim() : null;
         
-        candidatoDAO.cadastrarCandidato(numero, nome, partido, vice, cargo);
+        String caminhoFoto = (fotoSelecionada != null) ? PASTA_FOTOS + "/" + numero + ".png" : null;
+        
+        try {
+            if(candidatoDAO.existeNumero(numero)){
+                JOptionPane.showMessageDialog(this,
+                        "Número de candidato já existente",
+                        "Cadastro de Candidato",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            candidatoDAO.inserir(new Candidato(numero, nome, partido, vice, cargo, caminhoFoto));
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Erro ao cadastrar candidato: " + e.getMessage(),
+                    "Erro",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         
         if(fotoSelecionada != null){
             salvarFoto(numero);
@@ -247,15 +259,17 @@ public class TelaCadastroCandidato extends javax.swing.JDialog {
         
         JOptionPane.showMessageDialog(this,
             "Cadastro concluído com sucesso",
-            "Cadastro de Eleitor",
+            "Cadastro de Candidato",
         JOptionPane.INFORMATION_MESSAGE);
         
         limpaCampo();
     }//GEN-LAST:event_btnCadastrarActionPerformed
     
+    private static final String PASTA_FOTOS = "src/main/java/fai/aulas/urnafai/fotos";
+    
     private void salvarFoto(String numero){
         try {
-            java.io.File pasta = new java.io.File("src/main/java/fai/aulas/urnafai/fotos");
+            java.io.File pasta = new java.io.File(PASTA_FOTOS);
             if(!pasta.exists()){
                 pasta.mkdirs();
             }

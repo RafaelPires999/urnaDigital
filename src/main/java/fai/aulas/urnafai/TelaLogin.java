@@ -4,6 +4,8 @@
  */
 package fai.aulas.urnafai;
 
+import java.sql.SQLException;
+
 import javax.swing.JOptionPane;
 
 /**
@@ -115,18 +117,26 @@ public class TelaLogin extends javax.swing.JDialog {
 
     private void btnAcessarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcessarActionPerformed
         // TODO add your handling code here:
-        String usuario = txtUsuario.getText();
+        String usuario = txtUsuario.getText().trim();
         String senha = new String(txtSenha.getPassword());
         
-        mesarioDAO.recarregar();
-        Mesario m = mesarioDAO.autenticarMesario(usuario, senha);
-
-        if(m != null){
-            mesarioAutenticado = m;
-            dispose();
-        } else {
-            JOptionPane.showMessageDialog(this, "Usuário ou senha inválido", "Erro",
-            JOptionPane.ERROR_MESSAGE);
+        try{
+            // A comparação da senha (em hash) é feita dentro do DAO
+            Mesario m = mesarioDAO.autenticar(usuario, senha);
+            
+            if(m != null){
+                mesarioAutenticado = m;
+                dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "Usuário ou senha inválido", "Erro",
+                JOptionPane.ERROR_MESSAGE);
+            }
+        } catch(SQLException e){
+            JOptionPane.showMessageDialog(
+                this,
+                "Erro ao acessar o banco de dados: " + e.getMessage(),
+                "Erro",
+                JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_btnAcessarActionPerformed
 

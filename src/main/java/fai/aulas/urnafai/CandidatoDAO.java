@@ -4,12 +4,10 @@
  */
 package fai.aulas.urnafai;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 /**
@@ -17,71 +15,86 @@ import java.util.List;
  * @author rafa-pires
  */
 public class CandidatoDAO {
-    private static final String ARQUIVO = "candidatos.txt";
-    private List<Candidato> candidatos = new ArrayList<>();
-    
-    public CandidatoDAO(){
-        carregarCandidato();
+
+    private static final String SELECT_CANDIDATO =
+            "SELECT c.numero, c.nome, c.partido, c.vice, c.foto, g.nome AS cargo "
+          + "FROM candidatos c "
+          + "JOIN cargo g ON g.id_cargo = c.id_cargo ";
+
+    /**
+     * Grava o candidato. O id do cargo é buscado no banco pelo nome
+     * (PREFEITO/VEREADOR), sem número fixo no código.
+     */
+    public void inserir(Candidato candidato) throws SQLException{
+        String sql = "INSERT INTO candidatos (numero, nome, partido, vice, id_cargo, foto) "
+                   + "SELECT ?, ?, ?, ?, id_cargo, ? FROM cargo WHERE nome = ?";
+
+        try(Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)){
+            ps.setString(1, candidato.getNumero());
+            ps.setString(2, candidato.getNome());
+            ps.setString(3, candidato.getPartido());
+            ps.setString(4, candidato.getVice());
+            ps.setString(5, candidato.getFoto());
+            ps.setString(6, candidato.getCargo());
+
+            if(ps.executeUpdate() != 1){
+                throw new SQLException("Cargo inválido: " + candidato.getCargo());
+            }
+        }
     }
-    
-    public List<Candidato> listarTodos(){
-        return new ArrayList<>(candidatos);
-    }
-    
-    public void adicionar(Candidato c){
-        candidatos.add(c);
-    }
-    
-    public void cadastrarCandidato(String numero, String nome, String partido, String vice, String cargo){
-        Candidato candidato = new Candidato(numero, nome, partido, vice, cargo);
-        candidatos.add(candidato);
-        salvarCandidato(candidato);
-    }
-    
-    public Candidato buscaPorNumero(String numero){
-        for (Candidato c : candidatos){
-            if(c.getNumero().equals(numero)){
-                return c;
+
+    public Candidato buscaPorNumero(String numero) throws SQLException{
+        String sql = SELECT_CANDIDATO + "WHERE c.numero = ?";
+
+        try(Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)){
+            ps.setString(1, numero);
+
+            try(ResultSet rs = ps.executeQuery()){
+                if(rs.next()){
+                    return montarCandidato(rs);
+                }
             }
         }
         return null;
     }
-    
-    public boolean numeroExiste(String numero){
-        for(Candidato c : candidatos){
-            if(c.getNumero().equals(numero)){
-                return true;
+
+    public List<Candidato> listarTodos() throws SQLException{
+        String sql = SELECT_CANDIDATO + "ORDER BY c.numero";
+        List<Candidato> candidatos = new ArrayList<>();
+
+        try(Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql);
+        ResultSet rs = ps.executeQuery()){
+            while(rs.next()){
+                candidatos.add(montarCandidato(rs));
             }
         }
-        return false;
+        return candidatos;
     }
-    
-    private void salvarCandidato(Candidato c){
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(ARQUIVO, true))){
-            bw.write(c.getNumero() + ";" + c.getNome() + ";" + c.getPartido() + ";" + (c.getVice() == null ? "" : c.getVice()) + ";" + c.getCargo());
-            bw.newLine();
-        } catch(IOException e){
-            e.printStackTrace();
-        }
-    }
-    
-    private void carregarCandidato(){
-        File arquivo = new File(ARQUIVO);
-        if(!arquivo.exists()){
-            return;
-        }
-        
-        try(BufferedReader br = new BufferedReader(new FileReader(arquivo))){
-            String linha;
-            while((linha = br.readLine()) != null){
-                String[] partes = linha.split(";", -1);
-                if(partes.length == 5){
-                    String vice = partes[3].isEmpty() ? null : partes[3];
-                    candidatos.add(new Candidato(partes[0], partes[1], partes[2], vice, partes[4]));
-                }
+
+    public boolean existeNumero(String numero) throws SQLException {
+        String sql = "SELECT numero FROM candidatos WHERE numero = ?";
+
+        try(Connection con = Conexao.conectar();
+        PreparedStatement ps = con.prepareStatement(sql)){
+            ps.setString(1, numero);
+
+            try(ResultSet rs = ps.executeQuery()){
+                return rs.next();
             }
-        } catch(IOException e){
-            e.printStackTrace();
         }
+    }
+
+    private Candidato montarCandidato(ResultSet rs) throws SQLException{
+        Candidato candidato = new Candidato();
+        candidato.setNumero(rs.getString("numero"));
+        candidato.setNome(rs.getString("nome"));
+        candidato.setPartido(rs.getString("partido"));
+        candidato.setVice(rs.getString("vice"));
+        candidato.setCargo(rs.getString("cargo"));
+        candidato.setFoto(rs.getString("foto"));
+        return candidato;
     }
 }

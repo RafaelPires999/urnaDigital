@@ -20,20 +20,38 @@ class Mesario {
         this.usuario = usuario;
         this.senha = senha;
     }
-    
-    public String getNome(){
+    public Mesario() {
+    }
+
+    public String getNome() {
         return nome;
     }
-    
-    public String getMatricula(){
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public String getMatricula() {
         return matricula;
     }
-    
-    public String getUsuario(){
+
+    public void setMatricula(String matricula) {
+        this.matricula = matricula;
+    }
+
+    public String getUsuario() {
         return usuario;
     }
-    
-    public String getSenha(){
+
+    public void setUsuario(String usuario) {
+        this.usuario = usuario;
+    }
+
+    public String getSenha() {
         return senha;
+    }
+
+    public void setSenha(String senha) {
+        this.senha = senha;
     }
 }
