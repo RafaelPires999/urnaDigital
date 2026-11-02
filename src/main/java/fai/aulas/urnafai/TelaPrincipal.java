@@ -813,7 +813,7 @@ public class TelaPrincipal extends javax.swing.JFrame {
                 exibirStatusEleitor(false, "CPF não cadastrado. Verifique o documento apresentado pelo eleitor");
             } else if(!eleitor.getTitulo().equals(titulo)){
                 exibirStatusEleitor(false, "Título de eleitor não confere com o CPF informado");
-            } else if(eleitor.getJavotou()){
+            } else if(eleitor.isJavotou()){
                 exibirStatusEleitor(false, "Este eleitor ja registrou o voto nesta sessão");
             } else {
                 exibirStatusEleitor(true, "Eleitor identificado com Sucesso. Urna liberada para votar");

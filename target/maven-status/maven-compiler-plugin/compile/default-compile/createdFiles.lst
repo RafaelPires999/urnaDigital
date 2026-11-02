@@ -3,6 +3,7 @@ fai\aulas\urnafai\TelaCadastroEleitor$1$1.class
 fai\aulas\urnafai\TelaCadastro$1$1.class
 fai\aulas\urnafai\TelaCadastro$1.class
 fai\aulas\urnafai\Zeresima$1$1.class
+fai\aulas\urnafai\JPAUtil.class
 fai\aulas\urnafai\TelaCadastroCandidato$1.class
 fai\aulas\urnafai\Eleitor.class
 fai\aulas\urnafai\ItemVoto.class
@@ -26,6 +27,8 @@ fai\aulas\urnafai\TelaCadastro.class
 fai\aulas\urnafai\Voto.class
 fai\aulas\urnafai\TelaCadastroEleitor$1.class
 fai\aulas\urnafai\TelaCadastroMesario.class
+fai\aulas\urnafai\RegistroVoto.class
+fai\aulas\urnafai\Cargo.class
 fai\aulas\urnafai\CandidatoDAO.class
 fai\aulas\urnafai\TelaCadastroCandidato.class
 fai\aulas\urnafai\Hash.class

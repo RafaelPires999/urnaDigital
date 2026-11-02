@@ -1,17 +1,32 @@
 package fai.aulas.urnafai;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
-/**
- * Sessão de votação aberta por um mesário.
- * fim == null significa que a sessão ainda está aberta.
- *
- * @author rafa-pires
- */
+
+@Entity
+@Table(name = "sessao")
 public class Sessao {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_sessao")
     private int idSessao;
+
+    @Column(name = "inicio", insertable = false, updatable = false)
     private LocalDateTime inicio;
+
+    @Column(name = "fim")
     private LocalDateTime fim;
+
+    @ManyToOne
+    @JoinColumn(name = "id_mesario")
     private Mesario mesario;
 
     public Sessao() {

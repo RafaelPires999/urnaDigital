@@ -1,10 +1,9 @@
 package fai.aulas.urnafai;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import jakarta.persistence.EntityManager;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,75 +15,76 @@ public class VotoDAO {
     private final EleitorDAO eleitorDAO = new EleitorDAO();
 
     public void registrarVotacao(Voto voto, Eleitor eleitor) throws SQLException {
-        String sql = "INSERT INTO voto (id_sessao, id_cargo, voto) "
-                   + "SELECT ?, id_cargo, ? FROM cargo WHERE nome = ?";
+        EntityManager em = JPAUtil.getEntityManager();
 
-        try (Connection con = Conexao.conectar()) {
-            con.setAutoCommit(false);
+        try {
+            em.getTransaction().begin();
 
-            try {
-                if (!eleitorDAO.marcarComoVotou(con, eleitor)) {
-                    throw new SQLException("Eleitor já votou ou não está cadastrado");
-                }
-
-                try (PreparedStatement ps = con.prepareStatement(sql)) {
-                    for (ItemVoto item : voto.getItens()) {
-                        ps.setInt(1, voto.getIdSessao());
-                        ps.setString(2, CifraCesar.cifrar(item.getValor()));
-                        ps.setString(3, item.getCargo());
-
-                        if (ps.executeUpdate() != 1) {
-                            throw new SQLException("Cargo inválido: " + item.getCargo());
-                        }
-                    }
-                }
-
-                con.commit();
-                eleitor.setJavotou(true);
-            } catch (SQLException | RuntimeException e) {
-                con.rollback();
-                throw e;
+            if (!eleitorDAO.marcarComoVotou(em, eleitor)) {
+                throw new SQLException("Eleitor já votou ou não está cadastrado");
             }
+
+            for (ItemVoto item : voto.getItens()) {
+                List<Cargo> cargos = em.createQuery("SELECT c FROM Cargo c WHERE c.nome = :nome", Cargo.class)
+                        .setParameter("nome", item.getCargo())
+                        .getResultList();
+
+                if (cargos.isEmpty()) {
+                    throw new SQLException("Cargo inválido: " + item.getCargo());
+                }
+
+                em.persist(new RegistroVoto(voto.getIdSessao(),
+                                            cargos.get(0).getIdCargo(),
+                                            CifraCesar.cifrar(item.getValor())));
+            }
+
+            em.getTransaction().commit();
+            eleitor.setJavotou(true);
+        } catch (SQLException | RuntimeException e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            throw e;
+        } finally {
+            em.close();
         }
     }
 
     public Map<String, Integer> apurar(String cargo) throws SQLException {
-        String sql = "SELECT v.voto, COUNT(*) AS total "
-                   + "FROM voto v "
-                   + "JOIN cargo g ON g.id_cargo = v.id_cargo "
-                   + "WHERE g.nome = ? "
-                   + "GROUP BY v.voto "
-                   + "ORDER BY total DESC";
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Object[]> linhas = em.createQuery(
+                  "SELECT v.voto, COUNT(v) "
+                + "FROM RegistroVoto v, Cargo g "
+                + "WHERE g.idCargo = v.idCargo AND g.nome = :cargo "
+                + "GROUP BY v.voto "
+                + "ORDER BY COUNT(v) DESC", Object[].class)
+                .setParameter("cargo", cargo)
+                .getResultList();
+        em.close();
+
         Map<String, Integer> resultado = new LinkedHashMap<>();
-
-        try (Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, cargo);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    resultado.put(CifraCesar.decifrar(rs.getString("voto")),
-                                  rs.getInt("total"));
-                }
-            }
+        for (Object[] linha : linhas) {
+            resultado.put(CifraCesar.decifrar((String) linha[0]),
+                          ((Long) linha[1]).intValue());
         }
         return resultado;
     }
 
     public void limparVotos() throws SQLException {
-        String sql = "DELETE FROM voto";
+        EntityManager em = JPAUtil.getEntityManager();
 
-        try (Connection con = Conexao.conectar()) {
-            con.setAutoCommit(false);
-
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
-                ps.executeUpdate();
-                eleitorDAO.resetarVotos(con);
-                con.commit();
-            } catch (SQLException | RuntimeException e) {
-                con.rollback();
-                throw e;
+        try {
+            em.getTransaction().begin();
+            em.createQuery("DELETE FROM RegistroVoto").executeUpdate();
+            eleitorDAO.resetarVotos(em);
+            em.getTransaction().commit();
+        } catch (RuntimeException e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
             }
+            throw e;
+        } finally {
+            em.close();
         }
     }
 }

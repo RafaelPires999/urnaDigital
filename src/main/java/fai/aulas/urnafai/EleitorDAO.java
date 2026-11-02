@@ -4,10 +4,12 @@
  */
 package fai.aulas.urnafai;
 
+import jakarta.persistence.EntityManager;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 /**
  *
  * @author rafa-pires
@@ -18,95 +20,56 @@ public class EleitorDAO {
         return texto == null ? "" : texto.replaceAll("[^0-9]", "");
     }
 
-    /** Grava o eleitor; o CPF vai para o banco em hash MD5. */
     public void inserir(Eleitor eleitor) throws SQLException{
-        String sql = "INSERT INTO eleitores (cpf, titulo, nome, ja_votou) VALUES (?, ?, ?, ?)";
-
-        try(Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)){
-            ps.setString(1, md5(limparNumeros(eleitor.getCpf())));
-            ps.setString(2, limparNumeros(eleitor.getTitulo()));
-            ps.setString(3, eleitor.getNome());
-            ps.setBoolean(4, false);
-            ps.executeUpdate();
-        }
+        eleitor.setCpf(md5(limparNumeros(eleitor.getCpf())));
+        eleitor.setTitulo(limparNumeros(eleitor.getTitulo()));
+        eleitor.setJavotou(false);
+        
+        EntityManager em = JPAUtil.getEntityManager();
+        em.getTransaction().begin();
+        em.persist(eleitor);
+        em.getTransaction().commit();
+        em.close();
     }
 
     public Eleitor buscarPorCPF(String cpf) throws SQLException {
-        String sql = "SELECT cpf, titulo, nome, ja_votou FROM eleitores WHERE cpf = ?";
-
-        try (Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, md5(limparNumeros(cpf)));
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Eleitor eleitor = new Eleitor();
-
-                    eleitor.setCpf(rs.getString("cpf"));
-                    eleitor.setTitulo(rs.getString("titulo"));
-                    eleitor.setNome(rs.getString("nome"));
-                    eleitor.setJavotou(rs.getBoolean("ja_votou"));
-
-                    return eleitor;
-                }
-            }
-        }
-        return null;
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Eleitor> eleitores = em.createQuery("SELECT e FROM Eleitor e WHERE e.cpf = :cpf", Eleitor.class)
+                .setParameter("cpf", md5(limparNumeros(cpf)))
+                .getResultList();
+        em.close();
+        return eleitores.isEmpty() ? null : eleitores.get(0);
     }
 
     public boolean existeCPF(String cpf) throws SQLException{
-        String sql = "SELECT cpf FROM eleitores WHERE cpf = ?";
-
-        try (Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)){
-            ps.setString(1, md5(limparNumeros(cpf)));
-
-            try(ResultSet rs = ps.executeQuery()){
-                return rs.next();
-            }
-        }
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Eleitor> eleitores = em.createQuery("SELECT e FROM Eleitor e WHERE e.cpf = :cpf", Eleitor.class)
+                .setParameter("cpf", md5(limparNumeros(cpf)))
+                .getResultList();
+        em.close();
+        return !eleitores.isEmpty();
     }
 
     public boolean existeTitulo(String titulo) throws SQLException{
-        String sql = "SELECT titulo FROM eleitores WHERE titulo = ?";
-
-        try(Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)){
-            ps.setString(1, limparNumeros(titulo));
-
-            try(ResultSet rs = ps.executeQuery()){
-                return rs.next();
-            }
-        }
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Eleitor> eleitores = em.createQuery("SELECT e FROM Eleitor e WHERE titulo = :titulo", Eleitor.class)
+                .setParameter("titulo", limparNumeros(titulo))
+                .getResultList();
+        em.close();
+        return !eleitores.isEmpty();
     }
 
-    /**
-     * Marca o eleitor como votante usando a conexão da transação do voto.
-     * O "AND ja_votou = FALSE" faz a checagem e a gravação num passo só:
-     * se o eleitor já tiver votado, nenhuma linha é alterada e retorna false.
-     */
-    public boolean marcarComoVotou(Connection con, Eleitor eleitor) throws SQLException {
-        String sql = "UPDATE eleitores SET ja_votou = TRUE WHERE cpf = ? AND ja_votou = FALSE";
-
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, eleitor.getCpf());
-            return ps.executeUpdate() == 1;
-        }
+    public boolean marcarComoVotou(EntityManager em, Eleitor eleitor){
+        int linha = em.createQuery("UPDATE Eleitor e SET e.javotou = true WHERE e.cpf = :cpf AND e.javotou = false")
+                .setParameter("cpf", eleitor.getCpf())
+                .executeUpdate();
+        return linha == 1;
     }
 
-    /**
-     * Libera todos os eleitores para uma nova eleição. Recebe a conexão da
-     * transação de limpeza, para rodar junto com a exclusão dos votos.
-     */
-    public void resetarVotos(Connection con) throws SQLException {
-        String sql = "UPDATE eleitores SET ja_votou = FALSE";
-
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.executeUpdate();
-        }
+    public void resetarVotos(EntityManager em){
+        em.createQuery("UPDATE Eleitor e SET e.javotou = false").executeUpdate();
     }
-
+    
     private static String md5(String texto){
         return Hash.md5(texto);
     }

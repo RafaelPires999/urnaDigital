@@ -4,6 +4,7 @@
  */
 package fai.aulas.urnafai;
 
+import jakarta.persistence.EntityManager;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.PreparedStatement;
@@ -21,70 +22,52 @@ public class CandidatoDAO {
           + "FROM candidatos c "
           + "JOIN cargo g ON g.id_cargo = c.id_cargo ";
 
-    /**
-     * Grava o candidato. O id do cargo é buscado no banco pelo nome
-     * (PREFEITO/VEREADOR), sem número fixo no código.
-     */
-    public void inserir(Candidato candidato) throws SQLException{
-        String sql = "INSERT INTO candidatos (numero, nome, partido, vice, id_cargo, foto) "
-                   + "SELECT ?, ?, ?, ?, id_cargo, ? FROM cargo WHERE nome = ?";
-
-        try(Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)){
-            ps.setString(1, candidato.getNumero());
-            ps.setString(2, candidato.getNome());
-            ps.setString(3, candidato.getPartido());
-            ps.setString(4, candidato.getVice());
-            ps.setString(5, candidato.getFoto());
-            ps.setString(6, candidato.getCargo());
-
-            if(ps.executeUpdate() != 1){
-                throw new SQLException("Cargo inválido: " + candidato.getCargo());
-            }
-        }
+    public void inserir(Candidato candidato){
+        EntityManager em = JPAUtil.getEntityManager();
+        em.getTransaction().begin();
+        em.persist(candidato);
+        em.getTransaction().commit();
+        em.close();
+    }
+    
+    public Integer buscarIdCargo(String nomeCargo) {
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Cargo> cargos = em.createQuery("SELECT c FROM Cargo c WHERE c.nome = :nome", Cargo.class)
+                .setParameter("nome", nomeCargo)
+                .getResultList();
+        em.close();
+        return cargos.isEmpty() ? null : cargos.get(0).getIdCargo();
     }
 
-    public Candidato buscaPorNumero(String numero) throws SQLException{
-        String sql = SELECT_CANDIDATO + "WHERE c.numero = ?";
-
-        try(Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)){
-            ps.setString(1, numero);
-
-            try(ResultSet rs = ps.executeQuery()){
-                if(rs.next()){
-                    return montarCandidato(rs);
-                }
-            }
+    public Candidato buscaPorNumero(String numero) throws SQLException {
+        EntityManager em = JPAUtil.getEntityManager();
+        Candidato c = em.find(Candidato.class, numero);
+        if (c != null) {
+            Cargo cargo = em.find(Cargo.class, c.getIdCargo());
+            c.setCargo(cargo.getNome());
         }
-        return null;
+        em.close();
+        return c;
     }
 
     public List<Candidato> listarTodos() throws SQLException{
-        String sql = SELECT_CANDIDATO + "ORDER BY c.numero";
-        List<Candidato> candidatos = new ArrayList<>();
-
-        try(Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql);
-        ResultSet rs = ps.executeQuery()){
-            while(rs.next()){
-                candidatos.add(montarCandidato(rs));
-            }
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Candidato> candidatos = em.createQuery("SELECT c FROM Candidato c ORDER BY c.numero", Candidato.class)
+                .getResultList();
+        for(Candidato c : candidatos){
+            Cargo cargo = em.find(Cargo.class, c.getIdCargo());
+            c.setCargo(cargo.getNome());
         }
+        
+        em.close();
         return candidatos;
     }
 
     public boolean existeNumero(String numero) throws SQLException {
-        String sql = "SELECT numero FROM candidatos WHERE numero = ?";
-
-        try(Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)){
-            ps.setString(1, numero);
-
-            try(ResultSet rs = ps.executeQuery()){
-                return rs.next();
-            }
-        }
+        EntityManager em = JPAUtil.getEntityManager();
+        Candidato c = em.find(Candidato.class, numero);
+        em.close();
+        return c != null;
     }
 
     private Candidato montarCandidato(ResultSet rs) throws SQLException{

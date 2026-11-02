@@ -4,16 +4,39 @@
  */
 package fai.aulas.urnafai;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+
 /**
  *
  * @author rafa-pires
  */
+@Entity
+@Table(name="candidatos")
 public class Candidato {
+    @Id
+    @Column(name = "numero", length = 5)
     private String numero;
+    
+    @Column(name = "nome", length = 100)
     private String nome;
+    
+    @Column(name = "partido", length = 30)
     private String partido;
+    
+    @Column(name = "vice", length = 100)
     private String vice;
+    
+    @Column(name = "id_cargo")
+    private Integer idCargo;
+    
+    @Transient
     private String cargo;
+    
+    @Column(name = "foto", length = 255)
     private String foto;
     
     public Candidato(String numero, String nome, String partido){
@@ -75,7 +98,14 @@ public class Candidato {
     public Boolean temVice(){
         return vice != null;
     }
- 
+    
+    public Integer getIdCargo(){
+        return idCargo;
+    }
+    
+    public void setIdCargo(Integer idCargo){
+        this.idCargo = idCargo;
+    }
     public String getCargo() {
         return cargo;
     }
@@ -95,5 +125,4 @@ public class Candidato {
     public boolean temFoto(){
         return foto != null && !foto.isEmpty();
     }
-
 }

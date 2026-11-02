@@ -5,7 +5,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Funções de hash usadas para não gravar dados sensíveis em texto puro.
  *
  * @author rafa-pires
  */
@@ -24,11 +23,7 @@ public final class Hash {
         return gerar("SHA-256", texto);
     }
 
-    /**
-     * Hash da senha do mesário. O usuário entra como "sal": dois mesários
-     * com a mesma senha ficam com hashes diferentes no banco.
-     * Equivale no MySQL a SHA2(CONCAT(usuario, ':', senha), 256).
-     */
+
     public static String senha(String usuario, String senha) {
         return sha256(usuario + ":" + senha);
     }

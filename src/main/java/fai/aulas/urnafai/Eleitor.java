@@ -4,15 +4,36 @@
  */
 package fai.aulas.urnafai;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 /**
  *
  * @author rafa-pires
  */
+@Entity
+@Table(name = "eleitores")
 public class Eleitor {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_eleitor")
+    private Integer idEleitor;
+    
+    @Column(name = "cpf")
     private String cpf;
+    
+    @Column(name = "titulo")
     private String titulo;
+    
+    @Column(name = "nome")
     private String nome;
-    private Boolean javotou;
+    
+    @Column(name = "ja_votou")
+    private boolean javotou;
     
     public Eleitor(String cpf, String titulo, String nome, Boolean javotou){
         this.cpf = cpf;
@@ -22,6 +43,10 @@ public class Eleitor {
     }
     
     public Eleitor(){
+    }
+
+    public Integer getIdEleitor() {
+        return idEleitor;
     }
 
     public String getCpf() {
@@ -48,11 +73,11 @@ public class Eleitor {
         this.nome = nome;
     }
 
-    public Boolean getJavotou() {
+    public boolean isJavotou() {
         return javotou;
     }
 
-    public void setJavotou(Boolean javotou) {
+    public void setJavotou(boolean javotou) {
         this.javotou = javotou;
     }
 }

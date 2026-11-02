@@ -244,7 +244,9 @@ public class TelaCadastroCandidato extends javax.swing.JDialog {
                 return;
             }
             
-            candidatoDAO.inserir(new Candidato(numero, nome, partido, vice, cargo, caminhoFoto));
+            Candidato candidato = new Candidato(numero, nome, partido, vice, cargo, caminhoFoto);
+            candidato.setIdCargo(candidatoDAO.buscarIdCargo(cargo));
+            candidatoDAO.inserir(candidato);
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this,
                     "Erro ao cadastrar candidato: " + e.getMessage(),

@@ -4,11 +4,9 @@
  */
 package fai.aulas.urnafai;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import jakarta.persistence.EntityManager;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.List;
 
 /**
  *
@@ -16,67 +14,64 @@ import java.sql.Statement;
  */
 public class SessaoDAO {
     public int iniciarSessao(String matriculaMesario) throws SQLException {
-        String sql = "INSERT INTO sessao (id_mesario) "
-                   + "SELECT id_mesario FROM mesarios WHERE matricula = ?";
+        EntityManager em = JPAUtil.getEntityManager();
 
-        try (Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, matriculaMesario);
+        try {
+            em.getTransaction().begin();
 
-            if (ps.executeUpdate() == 0) {
+            List<Mesario> mesarios = em.createQuery("SELECT m FROM Mesario m WHERE m.matricula = :matricula", Mesario.class)
+                    .setParameter("matricula", matriculaMesario)
+                    .getResultList();
+
+            if (mesarios.isEmpty()) {
                 throw new SQLException("Mesário com matrícula " + matriculaMesario + " não encontrado");
             }
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
+            Sessao sessao = new Sessao();
+            sessao.setMesario(mesarios.get(0));
+            em.persist(sessao);
+            em.getTransaction().commit();
+
+            if (sessao.getIdSessao() == 0) {
+                throw new SQLException("Não foi possível obter o id da sessão");
             }
+            return sessao.getIdSessao();
+        } catch (SQLException | RuntimeException e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            throw e;
+        } finally {
+            em.close();
         }
-        throw new SQLException("Não foi possível obter o id da sessão");
     }
 
-    /**
-     * Procura uma sessão que foi iniciada e ainda não foi encerrada
-     * (fim IS NULL), por exemplo depois de uma queda de energia.
-     * Se houver mais de uma, retorna a mais recente.
-     *
-     * @return a sessão aberta, ou null se não houver nenhuma
-     */
     public Sessao buscarSessaoAberta() throws SQLException {
-        String sql = "SELECT s.id_sessao, s.inicio, m.nome, m.matricula, m.usuario "
-                   + "FROM sessao s "
-                   + "JOIN mesarios m ON m.id_mesario = s.id_mesario "
-                   + "WHERE s.fim IS NULL "
-                   + "ORDER BY s.inicio DESC, s.id_sessao DESC "
-                   + "LIMIT 1";
+        EntityManager em = JPAUtil.getEntityManager();
+        List<Sessao> sessoes = em.createQuery(
+                  "SELECT s FROM Sessao s "
+                + "WHERE s.fim IS NULL "
+                + "ORDER BY s.inicio DESC, s.idSessao DESC", Sessao.class)
+                .setMaxResults(1)
+                .getResultList();
+        em.close();
 
-        try (Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql);
-        ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                Mesario mesario = new Mesario();
-                mesario.setNome(rs.getString("nome"));
-                mesario.setMatricula(rs.getString("matricula"));
-                mesario.setUsuario(rs.getString("usuario"));
-
-                Sessao sessao = new Sessao();
-                sessao.setIdSessao(rs.getInt("id_sessao"));
-                sessao.setInicio(rs.getTimestamp("inicio").toLocalDateTime());
-                sessao.setMesario(mesario);
-                return sessao;
-            }
+        if (sessoes.isEmpty()) {
+            return null;
         }
-        return null;
+
+        Sessao sessao = sessoes.get(0);
+        sessao.getMesario().setSenha(null);
+        return sessao;
     }
 
     public void encerrarSessao(int idSessao) throws SQLException {
-        String sql = "UPDATE sessao SET fim = NOW() WHERE id_sessao = ?";
-
-        try (Connection con = Conexao.conectar();
-        PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, idSessao);
-            ps.executeUpdate();
-        }
+        EntityManager em = JPAUtil.getEntityManager();
+        em.getTransaction().begin();
+        em.createQuery("UPDATE Sessao s SET s.fim = CURRENT_TIMESTAMP WHERE s.idSessao = :id")
+                .setParameter("id", idSessao)
+                .executeUpdate();
+        em.getTransaction().commit();
+        em.close();
     }
 }
